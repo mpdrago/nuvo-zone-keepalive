@@ -32,7 +32,7 @@ fi
 # shellcheck disable=SC1090
 source "$CONFIG_PATH"
 
-LOG="${SCRIPT_DIR}/wake_zone.log"
+LOG="${NUVO_LOG_FILE:-${SCRIPT_DIR}/wake_zone.log}"
 echo "--- $(date) ---" >> "$LOG"
 
 if [[ -z "${NUVO_MEMBER_MAC:-}" || "$NUVO_MEMBER_MAC" == "000000000000" ]]; then

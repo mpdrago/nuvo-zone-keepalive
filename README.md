@@ -57,8 +57,18 @@ output into `config.conf`.
 
 ```bash
 # 3. Start the discovery poller, so wake_zone.sh always knows how to
-#    reach the zone even if its IP/port ever changes
+#    reach the zone even if its IP/port ever changes.
+#
+#    IMPORTANT: shairport-sync's hook (step 6) runs wake_zone.sh as
+#    shairport-sync's own service user, not as you. Find that user first
+#    so everything below is owned consistently -- see "Running as the
+#    shairport-sync user" below for the full explanation.
+systemctl show shairport-sync -p User -p Group
+# e.g. User=shairport-sync Group=shairport-sync -- use that below.
+# If both come back empty, shairport-sync runs as root; see the note below.
+
 sudo cp systemd/nuvo-discover.* /etc/systemd/system/
+sudo nano /etc/systemd/system/nuvo-discover.service   # set User=/Group= to match
 sudo mkdir -p /etc/nuvo-zone-keepalive
 sudo cp config.conf /etc/nuvo-zone-keepalive/config.conf
 sudo systemctl daemon-reload
@@ -68,11 +78,13 @@ sudo systemctl enable --now nuvo-discover.timer
 cat /var/lib/nuvo-zone-keepalive/discovery-cache.conf
 # should show a real ZONE_CONTROL_URL and AVTRANSPORT_CONTROL_URL
 
-# 5. Test the wake sequence directly
+# 5. Make the state/log directory writable by that same user, then test
+#    the wake sequence AS that user (not as yourself) so you're testing
+#    the same permissions shairport-sync's hook will actually run under
 sudo mkdir -p /var/lib/nuvo-zone-keepalive
-sudo chown "$USER" /var/lib/nuvo-zone-keepalive
+sudo chown shairport-sync:shairport-sync /var/lib/nuvo-zone-keepalive   # match step 3
 chmod +x wake_zone.sh
-./wake_zone.sh
+sudo -u shairport-sync ./wake_zone.sh
 ```
 
 Check `wake_zone.log` — a successful `GroupCreate` returns a `<groupID>`,
@@ -147,13 +159,76 @@ below. This is simpler, but will break silently if the Nuvo's IP or port
 ever changes — steps 3-4 of the Quick Start don't apply in this mode,
 skip straight to step 5.
 
-### A note on writable directories
+### Running as the shairport-sync user
 
-Both the discovery cache (`NUVO_CACHE_FILE`) and the group-cleanup state
-file (`NUVO_GROUP_STATE_FILE`) default to `/var/lib/nuvo-zone-keepalive/`.
-If you're running `discover.py`/`wake_zone.sh` as a non-root user, make
-sure that directory is writable by that user (see step 5 of the Quick
-Start), or point those settings at a directory that is.
+This is the detail behind steps 3 and 5 of the Quick Start, and worth
+reading in full if anything about permissions goes wrong.
+
+shairport-sync almost always runs as its own dedicated, unprivileged
+system user (commonly `shairport-sync`), not as root and not as whatever
+user you're logged in as when you install this. When it invokes
+`run_this_before_play_begins`, the hook script runs as *that* user — so
+if the cache file, the group-state file, the log file, or even
+`wake_zone.sh` and its sibling `lineIn-body-template.xml` aren't readable
+(and, for the state/log files, writable) by that specific user, the hook
+will silently fail every time shairport-sync calls it, even though
+everything worked fine when you ran it yourself.
+
+The simplest fix is to make everything consistently owned by that one
+user, so there's no cross-user boundary to cross at all:
+
+1. **Find the user:**
+   ```bash
+   systemctl show shairport-sync -p User -p Group
+   ```
+   If this prints real values (e.g. `User=shairport-sync`), that's your
+   user for everything below. **If both come back empty**, shairport-sync
+   is running as root, in which case there's actually no permission
+   problem to solve — root can read/write everything already, and you
+   can skip the rest of this section.
+
+2. **Own the data directory by that user** (already in Quick Start step
+   5, repeated here for reference):
+   ```bash
+   sudo mkdir -p /var/lib/nuvo-zone-keepalive
+   sudo chown shairport-sync:shairport-sync /var/lib/nuvo-zone-keepalive
+   ```
+   This covers `NUVO_CACHE_FILE`, `NUVO_GROUP_STATE_FILE`, and
+   `NUVO_LOG_FILE`, since all three default into this one directory.
+
+3. **Run the discovery poller as that same user** — set `User=`/`Group=`
+   in `nuvo-discover.service` before enabling the timer (the shipped
+   template already has placeholder values; update them to match what
+   step 1 printed).
+
+4. **Make sure the installed code itself is readable.** If you cloned
+   this repo as root or another user into `/opt/nuvo-zone-keepalive`,
+   confirm the shairport-sync user can at least read and execute it:
+   ```bash
+   sudo -u shairport-sync test -r /opt/nuvo-zone-keepalive/wake_zone.sh && echo OK
+   ```
+   A normal `git clone` typically leaves files world-readable by default,
+   so this is usually already fine — but worth confirming rather than
+   assuming, especially if you `chmod`'d anything restrictively along the
+   way.
+
+5. **Test as that user, not as yourself** — this is the one that
+   actually matters, since testing as your own login user can pass even
+   when the real hook would fail:
+   ```bash
+   sudo -u shairport-sync /opt/nuvo-zone-keepalive/wake_zone.sh
+   ```
+   Check `wake_zone.log` afterward the same way as usual. If this
+   succeeds, the shairport-sync hook will too.
+
+**If shairport-sync's systemd unit uses sandboxing directives** (check
+with `systemctl cat shairport-sync` — look for `ProtectSystem=`,
+`ProtectHome=`, `ReadWritePaths=`, `NoNewPrivileges=`, etc.), those can
+block file access or script execution even with correct ownership. If
+steps 1-5 above all check out but the hook still silently fails, this is
+the next thing to look at — you may need to add
+`/var/lib/nuvo-zone-keepalive` and wherever you installed this repo to
+shairport-sync's `ReadWritePaths=`/`ReadOnlyPaths=`.
 
 ## Finding your `NUVO_MEMBER_MAC`
 

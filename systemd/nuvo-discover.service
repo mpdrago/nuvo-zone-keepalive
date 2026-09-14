@@ -3,5 +3,15 @@ Description=nuvo-zone-keepalive: SSDP discovery for Nuvo zone control URLs
 
 [Service]
 Type=oneshot
+# Run as the same user shairport-sync uses to invoke wake_zone.sh, so
+# both share one consistent, non-root owner for the cache/state/log
+# files -- avoids cross-user permission errors entirely. Find your
+# shairport-sync user with:
+#   systemctl show shairport-sync -p User -p Group
+# (if both come back empty, it's running as root -- see "Running as the
+# shairport-sync user" in the README for the recommended alternative)
+User=shairport-sync
+Group=shairport-sync
 # Adjust this path to wherever you installed nuvo-zone-keepalive
 ExecStart=/usr/bin/python3 /opt/nuvo-zone-keepalive/discover.py --config /etc/nuvo-zone-keepalive/config.conf
+
