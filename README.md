@@ -55,18 +55,26 @@ cp config.example.conf config.conf
 Copy the `NUVO_MEMBER_MAC` and zone name for the zone you want from the
 output into `config.conf`.
 
+**Before continuing:** shairport-sync's hook (step 7 below) runs
+`wake_zone.sh` as shairport-sync's own service user, not as you — find
+that user now so steps 3-7 are owned consistently (see "Running as the
+shairport-sync user" below for the full explanation):
+
 ```bash
-# 3. Start the discovery poller, so wake_zone.sh always knows how to
-#    reach the zone even if its IP/port ever changes.
-#
-#    IMPORTANT: shairport-sync's hook (step 6) runs wake_zone.sh as
-#    shairport-sync's own service user, not as you. Find that user first
-#    so everything below is owned consistently -- see "Running as the
-#    shairport-sync user" below for the full explanation.
 systemctl show shairport-sync -p User -p Group
 # e.g. User=shairport-sync Group=shairport-sync -- use that below.
 # If both come back empty, shairport-sync runs as root; see the note below.
+```
 
+```bash
+# 3. Create and correctly own the data directory FIRST, before starting
+#    anything that writes into it -- doing this after starting the timer
+#    risks a race where step 4 checks a file that doesn't exist yet.
+sudo mkdir -p /var/lib/nuvo-zone-keepalive
+sudo chown shairport-sync:shairport-sync /var/lib/nuvo-zone-keepalive
+
+# 4. Start the discovery poller, so wake_zone.sh always knows how to
+#    reach the zone even if its IP/port ever changes
 sudo cp systemd/nuvo-discover.* /etc/systemd/system/
 sudo nano /etc/systemd/system/nuvo-discover.service   # set User=/Group= to match
 sudo mkdir -p /etc/nuvo-zone-keepalive
@@ -74,15 +82,14 @@ sudo cp config.conf /etc/nuvo-zone-keepalive/config.conf
 sudo systemctl daemon-reload
 sudo systemctl enable --now nuvo-discover.timer
 
-# 4. Confirm discovery is working
+# 5. Confirm discovery is working (give it a few seconds to run first)
+sleep 5
 cat /var/lib/nuvo-zone-keepalive/discovery-cache.conf
 # should show a real ZONE_CONTROL_URL and AVTRANSPORT_CONTROL_URL
 
-# 5. Make the state/log directory writable by that same user, then test
-#    the wake sequence AS that user (not as yourself) so you're testing
-#    the same permissions shairport-sync's hook will actually run under
-sudo mkdir -p /var/lib/nuvo-zone-keepalive
-sudo chown shairport-sync:shairport-sync /var/lib/nuvo-zone-keepalive   # match step 3
+# 6. Test the wake sequence AS that user (not as yourself) so you're
+#    testing the same permissions shairport-sync's hook will actually
+#    run under
 chmod +x wake_zone.sh
 sudo -u shairport-sync ./wake_zone.sh
 ```
@@ -93,7 +100,7 @@ with no `<s:Fault>`. If both look clean, your zone should now show as
 active with Line In selected in the Nuvo app — with zero taps.
 
 ```bash
-# 6. Wire it up so it runs automatically, e.g. right before AirPlay
+# 7. Wire it up so it runs automatically, e.g. right before AirPlay
 #    playback starts (adjust the path to match where you cloned this)
 ```
 
@@ -101,7 +108,9 @@ See `examples/shairport-sync-sessioncontrol.conf` — merge it into
 `/etc/shairport-sync.conf`, then `sudo systemctl restart shairport-sync`.
 Not using shairport-sync? `wake_zone.sh` is a standalone script and can
 be triggered from cron, another hook, or anywhere else you can shell out
-from.
+from. There's also an optional `tear_zone_down.sh` companion for cleaning
+up immediately on stop rather than on the next start — see "Tearing the
+zone down on stop" below; most people can skip it.
 
 That's the whole setup. Everything past this point is reference detail:
 what each piece does, static-mode/cron alternatives, multi-zone setups,
@@ -133,6 +142,29 @@ shairport-sync `run_this_before_play_begins` hook (see
 but it's a standalone script and works from cron, a systemd hook, or
 anywhere else you can shell out from.
 
+### Tearing the zone down on stop (optional)
+
+`tear_zone_down.sh` is an optional companion for the reverse hook,
+`run_this_after_play_ends`. It disbands the group `wake_zone.sh` created,
+immediately, instead of leaving it for either the Nuvo's own idle timeout
+or the next `wake_zone.sh` run to clean up. On a successful disband it
+also clears the group-state file, so that next `wake_zone.sh` run doesn't
+waste a call re-disbanding a group that's already gone.
+
+This is a tidiness improvement, not a fix for anything broken —
+`wake_zone.sh` already disbands the *previous* group before creating a
+new one regardless, so at most one orphaned group exists at any given
+time either way, and the Nuvo's own idle timeout (the whole reason this
+project exists) will very likely clean up an inactive group on its own
+before you'd notice. Skip this script entirely if you don't care whether
+the zone briefly still shows as "active" in the app for a while after
+playback actually stops. To enable it, see the commented-out line in
+`examples/shairport-sync-sessioncontrol.conf`.
+
+`wake_zone.sh` and `tear_zone_down.sh` share their config-loading and
+control-URL-resolution logic via `common.sh`, so the two scripts can't
+drift out of sync with each other over time.
+
 ## Installation reference
 
 The Quick Start above covers the recommended path (SSDP mode + systemd).
@@ -156,8 +188,8 @@ If you'd rather not run a discovery poller at all, set
 the device description URL from `list_zones.py`'s output once, or by
 capturing one request as described in "Finding your `NUVO_MEMBER_MAC`"
 below. This is simpler, but will break silently if the Nuvo's IP or port
-ever changes — steps 3-4 of the Quick Start don't apply in this mode,
-skip straight to step 5.
+ever changes — steps 3-5 of the Quick Start (the discovery poller) don't
+apply in this mode, skip straight to step 6 (testing).
 
 ### Running as the shairport-sync user
 
@@ -188,7 +220,7 @@ user, so there's no cross-user boundary to cross at all:
    can skip the rest of this section.
 
 2. **Own the data directory by that user** (already in Quick Start step
-   5, repeated here for reference):
+   3, repeated here for reference):
    ```bash
    sudo mkdir -p /var/lib/nuvo-zone-keepalive
    sudo chown shairport-sync:shairport-sync /var/lib/nuvo-zone-keepalive

@@ -9,52 +9,27 @@
 # Reads its target (member MAC, zone name) and connection info (static
 # host, or a cache file kept fresh by discover.py) from config.conf.
 #
+# See also: tear_zone_down.sh, an optional companion for the reverse
+# action (run_this_after_play_ends).
+#
 # Usage: wake_zone.sh [--config /path/to/config.conf]
 
 set -u
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=common.sh
+source "${SCRIPT_DIR}/common.sh"
 
-CONFIG_PATH=""
+EXPLICIT_CONFIG=""
 if [[ "${1:-}" == "--config" ]]; then
-    CONFIG_PATH="$2"
+    EXPLICIT_CONFIG="$2"
 fi
-if [[ -z "$CONFIG_PATH" ]]; then
-    if [[ -f "${SCRIPT_DIR}/config.conf" ]]; then
-        CONFIG_PATH="${SCRIPT_DIR}/config.conf"
-    elif [[ -f "/etc/nuvo-zone-keepalive/config.conf" ]]; then
-        CONFIG_PATH="/etc/nuvo-zone-keepalive/config.conf"
-    else
-        echo "No config.conf found. Copy config.example.conf to config.conf and edit it." >&2
-        exit 1
-    fi
-fi
+nuvo_load_config_and_resolve_urls "$EXPLICIT_CONFIG"
 
-# shellcheck disable=SC1090
-source "$CONFIG_PATH"
-
-LOG="${NUVO_LOG_FILE:-${SCRIPT_DIR}/wake_zone.log}"
 echo "--- $(date) ---" >> "$LOG"
 
 if [[ -z "${NUVO_MEMBER_MAC:-}" || "$NUVO_MEMBER_MAC" == "000000000000" ]]; then
     echo "NUVO_MEMBER_MAC not set in $CONFIG_PATH" | tee -a "$LOG" >&2
     exit 1
-fi
-
-# --- Resolve control URLs, either statically or from the discovery cache ---
-if [[ "${NUVO_DISCOVERY_MODE:-ssdp}" == "static" ]]; then
-    ZONE_CONTROL_URL="http://${NUVO_STATIC_HOST}${NUVO_STATIC_ZONE_CONTROL_PATH}"
-    AVTRANSPORT_CONTROL_URL="http://${NUVO_STATIC_HOST}${NUVO_STATIC_AVTRANSPORT_CONTROL_PATH}"
-else
-    if [[ ! -f "${NUVO_CACHE_FILE:-}" ]]; then
-        echo "Discovery cache not found at ${NUVO_CACHE_FILE:-<unset>}. Is discover.py running?" | tee -a "$LOG" >&2
-        exit 1
-    fi
-    # shellcheck disable=SC1090
-    source "$NUVO_CACHE_FILE"
-    if [[ -z "${ZONE_CONTROL_URL:-}" || -z "${AVTRANSPORT_CONTROL_URL:-}" ]]; then
-        echo "Discovery cache at $NUVO_CACHE_FILE is incomplete." | tee -a "$LOG" >&2
-        exit 1
-    fi
 fi
 
 echo "Using ZONE_CONTROL_URL=$ZONE_CONTROL_URL AVTRANSPORT_CONTROL_URL=$AVTRANSPORT_CONTROL_URL" >> "$LOG"
@@ -64,10 +39,10 @@ echo "Using ZONE_CONTROL_URL=$ZONE_CONTROL_URL AVTRANSPORT_CONTROL_URL=$AVTRANSP
 # itself, so without this, calling it repeatedly (e.g. every playback start)
 # leaves an ever-growing pile of orphaned groups on the Nuvo. We persist the
 # groupID from our last successful GroupCreate and disband it before making
-# a new one. Best-effort: if the old group is already gone (e.g. the zone
-# was manually torn down since), GroupDisband will just fault, which we log
-# and ignore rather than treating as fatal.
-GROUP_STATE_FILE="${NUVO_GROUP_STATE_FILE:-${SCRIPT_DIR}/last-group-id.conf}"
+# a new one. Best-effort: if the old group is already gone (e.g. it was
+# already cleaned up by tear_zone_down.sh, or the zone was manually torn
+# down since), GroupDisband will just fault, which we log and ignore rather
+# than treating as fatal.
 if [[ -f "$GROUP_STATE_FILE" ]]; then
     # shellcheck disable=SC1090
     source "$GROUP_STATE_FILE"
@@ -87,7 +62,8 @@ GROUP_RESPONSE=$(curl -s -X POST "$ZONE_CONTROL_URL" \
     --data "<?xml version=\"1.0\" encoding=\"UTF-8\"?><s:Envelope s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\" xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\"><s:Body><u:GroupCreate xmlns:u=\"urn:schemas-nuvotechnologies-com:service:Zone:1\"><memberIDs>[\"memberId-${NUVO_MEMBER_MAC}\"]</memberIDs></u:GroupCreate></s:Body></s:Envelope>")
 echo "GroupCreate: $GROUP_RESPONSE" >> "$LOG"
 
-# Persist the new groupID (atomically) so next run can disband it first.
+# Persist the new groupID (atomically) so next run (or tear_zone_down.sh)
+# can disband it.
 NEW_GROUP_ID=$(echo "$GROUP_RESPONSE" | sed -n 's/.*<groupID>\([^<]*\)<\/groupID>.*/\1/p')
 if [[ -n "$NEW_GROUP_ID" ]]; then
     TMP_STATE_FILE=$(mktemp "${GROUP_STATE_FILE}.XXXXXX")
