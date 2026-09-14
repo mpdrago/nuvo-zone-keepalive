@@ -1,0 +1,7 @@
+[Unit]
+Description=nuvo-zone-keepalive: SSDP discovery for Nuvo zone control URLs
+
+[Service]
+Type=oneshot
+# Adjust this path to wherever you installed nuvo-zone-keepalive
+ExecStart=/usr/bin/python3 /opt/nuvo-zone-keepalive/discover.py --config /etc/nuvo-zone-keepalive/config.conf

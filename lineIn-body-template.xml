@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<s:Envelope s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><u:X_NUVO_PlayContainerURI xmlns:u="urn:schemas-upnp-org:service:AVTransport:1"><InstanceID>0</InstanceID><CurrentURI></CurrentURI><CurrentURIMetaData>&lt;DIDL-Lite xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" xmlns:x="urn:schemas.nuvotechnologies.com"&gt;&lt;container id="lineIn:systemLineIns" parentID="0" restricted="1"&gt;
+        &lt;dc:title&gt;Line In&lt;/dc:title&gt;
+        &lt;upnp:class&gt;object.container&lt;/upnp:class&gt;
+        &lt;x:x_nuvo_nsdk&gt;{&amp;quot;title&amp;quot;:&amp;quot;Line In&amp;quot;,&amp;quot;containerType&amp;quot;:&amp;quot;none&amp;quot;,&amp;quot;path&amp;quot;:&amp;quot;lineIn:systemLineIns&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;container&amp;quot;,&amp;quot;align&amp;quot;:&amp;quot;left&amp;quot;}&lt;/x:x_nuvo_nsdk&gt;
+    &lt;/container&gt;&lt;/DIDL-Lite&gt;</CurrentURIMetaData><TrackURI>nuvo:nuvoremote:memberId-__MEMBER_MAC__/lineIn_memberId-__MEMBER_MAC__</TrackURI><TrackURIMetaData>&lt;DIDL-Lite xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" xmlns:x="urn:schemas.nuvotechnologies.com"&gt;&lt;item id="nuvoremote:memberId-__MEMBER_MAC__/lineIn_memberId-__MEMBER_MAC__" parentID="/stable/lineIn/" restricted="1"&gt;
+        &lt;dc:title&gt;Line Input&lt;/dc:title&gt;
+        &lt;dc:creator&gt;lineIn&lt;/dc:creator&gt;
+        &lt;res protocolInfo="nuvo:*:*:*"&gt;nuvo:nuvoremote:memberId-__MEMBER_MAC__/lineIn_memberId-__MEMBER_MAC__&lt;/res&gt;
+        &lt;upnp:class&gt;object.item.audioItem.audioBroadcast&lt;/upnp:class&gt;
+        &lt;dc:description&gt;__ZONE_NAME__&lt;/dc:description&gt;
+        &lt;upnp:icon&gt;skin:iconLineIn&lt;/upnp:icon&gt;
+        &lt;x:x_nuvo_context id="lineIn:lineInContextmemberId-__MEMBER_MAC__" restricted="1"&gt;
+            &lt;dc:title&gt;&lt;/dc:title&gt;
+            &lt;upnp:class&gt;object.container.x_nuvo_contextContainer&lt;/upnp:class&gt;
+            &lt;x:x_nuvo_itemId&gt;memberId-__MEMBER_MAC__&lt;/x:x_nuvo_itemId&gt;
+            &lt;x:x_nuvo_nsdk&gt;{&amp;quot;containerType&amp;quot;:&amp;quot;context&amp;quot;,&amp;quot;path&amp;quot;:&amp;quot;lineIn:lineInContextmemberId-__MEMBER_MAC__&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;container&amp;quot;,&amp;quot;id&amp;quot;:&amp;quot;memberId-__MEMBER_MAC__&amp;quot;,&amp;quot;align&amp;quot;:&amp;quot;left&amp;quot;}&lt;/x:x_nuvo_nsdk&gt;
+        &lt;/x:x_nuvo_context&gt;
+        &lt;x:x_nuvo_itemId&gt;memberId-__MEMBER_MAC__&lt;/x:x_nuvo_itemId&gt;
+        &lt;x:x_nuvo_nsdk&gt;{&amp;quot;mediaData&amp;quot;:{&amp;quot;metaData&amp;quot;:{&amp;quot;playLogicPath&amp;quot;:&amp;quot;nuvoremote:memberId-__MEMBER_MAC__/lineIn:PlayLogic&amp;quot;,&amp;quot;groupPlayRemote&amp;quot;:true,&amp;quot;serviceID&amp;quot;:&amp;quot;lineIn&amp;quot;}},&amp;quot;title&amp;quot;:&amp;quot;Line Input&amp;quot;,&amp;quot;description&amp;quot;:&amp;quot;__ZONE_NAME__&amp;quot;,&amp;quot;path&amp;quot;:&amp;quot;nuvoremote:memberId-__MEMBER_MAC__/lineIn_memberId-__MEMBER_MAC__&amp;quot;,&amp;quot;icon&amp;quot;:&amp;quot;skin:iconLineIn&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;audio&amp;quot;,&amp;quot;audioType&amp;quot;:&amp;quot;audioBroadcast&amp;quot;,&amp;quot;id&amp;quot;:&amp;quot;memberId-__MEMBER_MAC__&amp;quot;,&amp;quot;context&amp;quot;:{&amp;quot;containerType&amp;quot;:&amp;quot;context&amp;quot;,&amp;quot;path&amp;quot;:&amp;quot;lineIn:lineInContextmemberId-__MEMBER_MAC__&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;container&amp;quot;,&amp;quot;id&amp;quot;:&amp;quot;memberId-__MEMBER_MAC__&amp;quot;,&amp;quot;align&amp;quot;:&amp;quot;left&amp;quot;},&amp;quot;sortKey&amp;quot;:&amp;quot;1&amp;quot;}&lt;/x:x_nuvo_nsdk&gt;
+    &lt;/item&gt;&lt;/DIDL-Lite&gt;</TrackURIMetaData><StartingIndex>1</StartingIndex><UpdateID>-1</UpdateID></u:X_NUVO_PlayContainerURI></s:Body></s:Envelope>
