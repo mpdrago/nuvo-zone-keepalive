@@ -23,6 +23,27 @@ nuvo_find_config() {
     fi
 }
 
+nuvo_get_current_group_id() {
+    # Calls the Zone service's Get action and returns the zone's current
+    # MemberGroup id -- empty string if the zone isn't currently in a
+    # group. NOTE: Active/PowerState in the Get response do NOT indicate
+    # this (both read "1"/"active" whether grouped or not, confirmed by
+    # testing); the MemberGroup field's embedded id is what actually
+    # distinguishes the two states. Echoes empty string (not an error) if
+    # the call fails, so callers can safely fall back to the old
+    # disband-then-create behavior.
+    local zone_control_url="$1"
+
+    local response
+    response=$(curl -s -X POST "$zone_control_url" \
+        -H 'SOAPAction: "urn:schemas-nuvotechnologies-com:service:Zone:1#Get"' \
+        -H 'Content-Type: text/xml; charset="utf-8"' \
+        --data '<?xml version="1.0" encoding="UTF-8"?><s:Envelope s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><u:Get xmlns:u="urn:schemas-nuvotechnologies-com:service:Zone:1"></u:Get></s:Body></s:Envelope>' \
+        2>/dev/null)
+
+    echo "$response" | sed -n 's/.*<MemberGroup>{&quot;id&quot;:&quot;\([^&]*\)&quot;.*/\1/p'
+}
+
 nuvo_load_config_and_resolve_urls() {
     local explicit_config="$1"
 

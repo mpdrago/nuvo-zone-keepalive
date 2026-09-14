@@ -124,17 +124,29 @@ and how to explore the Nuvo's API further.
    cache self-heals if the zone's IP or port ever changes. On failure it
    leaves the existing cache alone rather than erasing a working value.
 2. **`wake_zone.sh`** — reads the cached (or statically configured)
-   control URLs, then makes three SOAP calls against the Nuvo:
-   - `GroupDisband` on the group it created *last time* (if any) — cleans
-     up before creating a new one, so groups don't pile up indefinitely.
-     Best-effort: if that group is already gone for any reason, this
-     simply faults harmlessly and is logged, not treated as fatal.
+   control URLs, then:
+   - Checks whether the zone is already in the group it created last
+     time, by calling the Zone service's `Get` action and comparing its
+     current `MemberGroup` id against the tracked groupID. (Note:
+     `Get`'s `Active`/`PowerState` fields do **not** indicate this — both
+     read `"active"` whether the zone is grouped or not, confirmed by
+     testing — the `MemberGroup` id is what actually distinguishes the
+     two states.) If it matches, the zone never actually went idle (e.g.
+     a quick stop/restart) and steps below are skipped entirely, avoiding
+     an unnecessary group churn/reconnect blip on the Nuvo.
+   - Otherwise: `GroupDisband` on the group it created *last time* (if
+     any) — cleans up before creating a new one, so groups don't pile up
+     indefinitely. Best-effort: if that group is already gone for any
+     reason, this simply faults harmlessly and is logged, not treated as
+     fatal.
    - `GroupCreate` on the Zone service — this is what "drag zone into
      start" actually does; it (re)activates the zone's playback group.
-     The returned groupID is saved so next run can disband it.
+     The returned groupID is saved so next run can check/disband it.
    - `X_NUVO_PlayContainerURI` on the AVTransport service — selects Line
      In as the zone's active source. This call depends on internal state
-     set by `GroupCreate`, so it must run after it, every time.
+     set by `GroupCreate`, so it must run after it, every time it runs —
+     but it always runs regardless of whether the group check above was
+     skipped, as a cheap, safe re-assertion of the source.
 
 Run `wake_zone.sh` from wherever makes sense for your use case — a
 shairport-sync `run_this_before_play_begins` hook (see
@@ -353,6 +365,13 @@ Each zone's `NUVO_MEMBER_MAC` is independent.
 - Built and tested against a Nuvo P3100. Zone naming, service paths, and
   behavior are assumed (not confirmed) to be the same across the rest of
   the Player Portfolio line.
+- `wake_zone.sh` calls `Get` before deciding whether to disband+recreate
+  the group. This adds one extra round-trip on every run, including the
+  common case (the zone actually is idle and needs waking) where the
+  check doesn't end up saving anything — it only pays off when playback
+  stops and restarts quickly enough that the zone never actually went
+  idle. Worth knowing if you're optimizing for minimum latency before
+  audio starts rather than minimum unnecessary group churn.
 - `wake_zone.sh` tracks the groupID it created last time in
   `NUVO_GROUP_STATE_FILE` and disbands it before creating a new one. If
   that file is ever deleted or gets out of sync (e.g. someone manually
